@@ -77,6 +77,20 @@ const O_PIECE = {
     shape: `1 1\n1 1`
 }
 
+const T_PIECE = {
+    color: 'purple',
+    shape: `0 1 0\n1 1 1\n0 0 0`
+}
+
+const S_PIECE = {
+    color: 'green',
+    shape: `0 1 1\n1 1 0\n0 0 0`
+}
+
+const Z_PIECE = {
+    color: 'red',
+    shape: `1 1 0\n0 1 1\n0 0 0`
+}
 
 
 export default class GameManager {
@@ -95,7 +109,7 @@ export default class GameManager {
     isDebug: boolean;
     debug: Debug;
 
-    pieces = [I_PIECE, J_PIECE, L_PIECE, O_PIECE];
+    pieces = [I_PIECE, J_PIECE, L_PIECE, O_PIECE, T_PIECE, S_PIECE, Z_PIECE];
 
     EMPTY_CELL: GridState;
     WINDOW_CELL: GridState;
