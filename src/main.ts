@@ -1,3 +1,5 @@
+import "./style.css"
+
 import GameMgr from "./GameMgr";
 
 const game = new GameMgr({

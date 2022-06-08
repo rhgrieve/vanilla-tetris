@@ -4,7 +4,7 @@ import CanvasMgr from "./CanvasMgr";
 
 const CELL_SIZE = 25;
 const BUFFER_SIZE = 2;
-const DEFAULT_WIDTH = CELL_SIZE * 10;
+const DEFAULT_WIDTH = CELL_SIZE * (10 + BUFFER_SIZE);
 const DEFAULT_HEIGHT = CELL_SIZE * (20 + BUFFER_SIZE);
 const DEFAULT_BACKGROUND = "black";
 const TICK_SPEED = 200;
@@ -71,7 +71,6 @@ const L_PIECE = {
     shape: `0 0 1\n1 1 1\n0 0 0`
 }
     
-
 const O_PIECE = {
     color: 'yellow',
     shape: `1 1\n1 1`
@@ -164,7 +163,7 @@ export default class GameManager {
         return new Matrix(piece.shape.split('\n')
             .map((p, y) => p.split(' ')
                 .map((n, x) => (<GamePiece>{
-                    x: x,
+                    x: (x + (this.boardOptions.width / this.cellSize) / 2) - this.bufferSize,
                     y: y,
                     color: piece.color,
                     value: parseInt(n)
@@ -205,18 +204,18 @@ export default class GameManager {
 
         const rightmostX = Math.max(...solidBody.map(p => p.x))
         const allPiecesAtRightmostX = solidBody.filter(p => p.x === rightmostX);
-        const isRightBorder = solidBody.some(p => p.x === this.boardState[p.y].length - 1)
-        const isCollidingRight = isRightBorder || allPiecesAtRightmostX.some(p => this.boardState[p.y][p.x + 1].type === FillState.Filled)
+        const isRightBorder = solidBody.some(p => p.x === this.boardState[p.y].length - this.bufferSize - 1)
+        const isCollidingRight = isRightBorder || solidBody.some(p => this.boardState[p.y][p.x + 1].type === FillState.Filled)
 
         const leftmostX = Math.min(...solidBody.map(p => p.x))
         const allPiecesAtLeftmostX = solidBody.filter(p => p.x === leftmostX);
-        const isLeftBorder = solidBody.some(p => p.x === 0)
-        const isCollidingLeft = isLeftBorder || allPiecesAtLeftmostX.some(p => this.boardState[p.y][p.x - 1].type === FillState.Filled)
+        const isLeftBorder = solidBody.some(p => p.x === this.bufferSize - 1)
+        const isCollidingLeft = isLeftBorder || solidBody.some(p => this.boardState[p.y][p.x - 1].type === FillState.Filled)
 
         const lowestY = Math.max(...solidBody.map(p => p.y))
         const allPiecesAtLowestY = solidBody.filter(p => p.y === lowestY)
         const isBottomBorder = solidBody.some(p => p.y === this.boardState.length - this.bufferSize - 1);
-        const isCollidingBottom = isBottomBorder || allPiecesAtLowestY.some(p => this.boardState[p.y + 1][p.x].type === FillState.Filled)
+        const isCollidingBottom = isBottomBorder || solidBody.some(p => this.boardState[p.y + 1][p.x].type === FillState.Filled)
 
         if (isCollidingRight) {
             collisions.push(Direction.Right);
@@ -233,10 +232,7 @@ export default class GameManager {
 
     handleFullRows() {
         for (let y = this.bufferSize - 1; y < this.boardState.length - this.bufferSize; y++) {
-            if (y === this.boardState.length - 1 - this.bufferSize) {
-                console.log(y)
-            }
-            if (this.boardState[y].every(c => c.type === FillState.Filled)) {
+            if (this.boardState[y].slice(this.bufferSize - 1, this.boardState[y].length - this.bufferSize - 1).every(c => c.type === FillState.Filled)) {
                 this.clearRow(y);
                 for (let z = y; z > 0 + 1; z--) {
                     for (let x = 0; x < this.boardState[z].length; x++) {
@@ -260,7 +256,7 @@ export default class GameManager {
             .flat()
             .filter(p => {
                 try {
-                    return p.value === 1 || this.boardState[p.y][p.x].type !== FillState.Filled
+                    return p.value === 1 || this.boardState[p.y][p.x] && this.boardState[p.y][p.x].type !== FillState.Filled
                 } catch (e) {
                     throw new Error(`failed accessing this.boardState[${p.y}][${p.x}]`)
                 }
@@ -297,6 +293,14 @@ export default class GameManager {
         this.canvasMgr.drawBoard(this.boardState);
     }
 
+    plungeActivePiece() {
+        let collisions = this.getCollisions(this.activePiece);
+        while (!collisions.includes(Direction.Bottom)) {
+            this.shiftActiveTetromino(Direction.Bottom);
+            collisions = this.getCollisions(this.activePiece);
+        }
+    }
+
     handleKeyDown(e: KeyboardEvent) {
         console.debug(`keydown: ${e.key}`)
         switch (e.key) {
@@ -311,6 +315,9 @@ export default class GameManager {
                 break;
             case 'ArrowUp':
                 this.rotateActiveTetromino();
+                break;
+            case ' ':
+                this.plungeActivePiece();
                 break;
         }
         this.draw();
@@ -330,14 +337,14 @@ export default class GameManager {
             .flat()
             .forEach(piece => {
                 if (piece.value === 1) {
-                    if (this.boardState[piece.y][piece.x].type !== FillState.Filled) {
+                    if (this.boardState[piece.y][piece.x] && this.boardState[piece.y][piece.x].type !== FillState.Filled) {
                         this.boardState[piece.y][piece.x] = {
                             type: FillState.Player,
                             color: piece.color,
                         };
                     }
                 } else {
-                    if (this.boardState[piece.y][piece.x].type !== FillState.Filled) {
+                    if (this.boardState[piece.y][piece.x] && this.boardState[piece.y][piece.x].type !== FillState.Filled) {
                         this.boardState[piece.y][piece.x] = this.WINDOW_CELL;
                     }
                 }
@@ -383,7 +390,8 @@ export default class GameManager {
 
     setup() {
         window.addEventListener('keydown', this.handleKeyDown.bind(this))
-        const startingPiece = this.getRandomPiece();
+        // const startingPiece = this.getRandomPiece();
+        const startingPiece = I_PIECE;
         this.insertPiece(startingPiece)
         this.canvasMgr.init();
         // if (this.isDebug) {
