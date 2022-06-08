@@ -1,4 +1,4 @@
-import { GridState } from "./GameMgr";
+import { ActivePiece, GridState } from "./GameMgr";
 
 interface ICanvasMgrOptions {
     width: number;
@@ -21,6 +21,7 @@ export default class CanvasMgr {
     canvas: HTMLCanvasElement;
     previewCanvas: HTMLCanvasElement;
     uiContainer: HTMLDivElement;
+    pCtx: CanvasRenderingContext2D;
     ctx: CanvasRenderingContext2D;
 
     constructor(options: ICanvasMgrOptions) {
@@ -33,6 +34,7 @@ export default class CanvasMgr {
         this.canvas = document.createElement("canvas");
         this.uiContainer = document.createElement("div");
         this.previewCanvas = document.createElement("canvas");
+        this.pCtx = <CanvasRenderingContext2D>this.previewCanvas.getContext('2d');
         this.isDebug = options.isDebug;
         this.ctx = <CanvasRenderingContext2D>this.canvas.getContext("2d");
     }
@@ -47,9 +49,28 @@ export default class CanvasMgr {
         this.previewCanvas.width = this.cellSize * 4;
         this.previewCanvas.style.backgroundColor = "black";
 
-        this.uiContainer.append(this.previewCanvas);
+        this.uiContainer.style.marginTop = `${2 * this.cellSize}px`;
+        const previewLabel = document.createElement('p')
+        previewLabel.innerText = "Next piece:"
+
+        this.uiContainer.append(previewLabel, this.previewCanvas);
 
         this.rootElement.append(this.canvas, this.uiContainer);
+    }
+
+    updateNextPiece(nextPiece: ActivePiece) {
+        this.pCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height)
+        nextPiece.data.forEach((row, y) => {
+            row.forEach((c, x) => {
+                this.pCtx.fillStyle = c.value === 1 ? c.color : 'black';
+                this.pCtx.fillRect(
+                    x * this.cellSize,
+                    y * this.cellSize,
+                    this.cellSize,
+                    this.cellSize
+                );
+            })
+        })
     }
 
     drawBoard(boardState: GridState[][]) {
